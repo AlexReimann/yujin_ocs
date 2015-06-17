@@ -1,5 +1,5 @@
-#ifndef YOCS_CONTROLLER_H_
-#define YOCS_CONTROLLER_H_
+#ifndef YOCS_DIFF_DRIVE_POSE_CONTROLLER_ROS_HPP_
+#define YOCS_DIFF_DRIVE_POSE_CONTROLLER_ROS_HPP_
 
 #include <cmath>
 #include <string>
@@ -39,13 +39,13 @@ namespace yocs
  *
  * This controller can be enabled/disabled.
  */
-class DiffDrivePoseController : public Controller
+class DiffDrivePoseControllerROS : public Controller
 {
 public:
-  DiffDrivePoseController(ros::NodeHandle& nh, std::string& name) : Controller(),
+  DiffDrivePoseControllerROS(ros::NodeHandle& nh, std::string& name) : Controller(),
                                                                        nh_(nh),
                                                                        name_(name){};
-  virtual ~DiffDrivePoseController(){};
+  virtual ~DiffDrivePoseControllerROS(){};
 
   /**
    * @brief Set-up necessary publishers/subscribers and variables
@@ -162,6 +162,6 @@ private:
   std::string goal_frame_name_;
 };
 
-} // namespace yocs
+} /* end namespace */
 
-#endif /* YOCS_CONTROLLER_HPP_ */
+#endif

@@ -28,7 +28,7 @@ include_directories(include
 
 add_library(${PROJECT_NAME}
     src/nodelet.cpp
-    src/controller.cpp)
+    src/diff_drive_pose_controller_ros.cpp)
     
 add_dependencies(${PROJECT_NAME}
     geometry_msgs_gencpp
