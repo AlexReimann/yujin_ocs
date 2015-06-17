@@ -24,20 +24,16 @@ bool DiffDrivePoseControllerROS::init()
     ROS_WARN_STREAM("Couldn't retrieve parameter 'goal_frame_name' from parameter server! Using default '"
                     << goal_frame_name_ << "'. [" << name_ <<"]");
   }
-  v_ = 0.0;
-  v_min_ = 0.01;
   if(!nh_.getParam("v_min", v_min_))
   {
     ROS_WARN_STREAM("Couldn't retrieve parameter 'v_min' from parameter server! Using default '"
                     << v_min_ << "'. [" << name_ <<"]");
   }
-  v_max_ = 0.5;
   if(!nh_.getParam("v_max", v_max_))
   {
     ROS_WARN_STREAM("Couldn't retrieve parameter 'v_max' from parameter server! Using default '"
                     << v_max_ << "'. [" << name_ <<"]");
   }
-  w_min_ = 0.01;
   if(!nh_.getParam("w_min", w_min_))
   {
     ROS_WARN_STREAM("Couldn't retrieve parameter 'w_min' from parameter server! Using default '"
@@ -49,37 +45,31 @@ bool DiffDrivePoseControllerROS::init()
     ROS_WARN_STREAM("Couldn't retrieve parameter 'w_max' from parameter server! Using default '"
                     << w_max_ << "'. [" << name_ <<"]");
   }
-  k_1_ = 1.0;
   if(!nh_.getParam("k_1", k_1_))
   {
     ROS_WARN_STREAM("Couldn't retrieve parameter 'k_1' from parameter server! Using default '"
                     << k_1_ << "'. [" << name_ <<"]");
   }
-  k_2_ = 3.0;
   if(!nh_.getParam("k_2", k_2_))
   {
     ROS_WARN_STREAM("Couldn't retrieve parameter 'k_2' from parameter server! Using default '"
                     << k_2_ << "'. [" << name_ <<"]");
   }
-  beta_ = 0.4;
   if(!nh_.getParam("beta", beta_))
   {
     ROS_WARN_STREAM("Couldn't retrieve parameter 'beta' from parameter server! Using default '"
                     << beta_ << "'. [" << name_ <<"]");
   }
-  lambda_ = 2.0;
   if(!nh_.getParam("lambda", lambda_))
   {
     ROS_WARN_STREAM("Couldn't retrieve parameter 'lambda' from parameter server! Using default '"
                     << lambda_ << "'. [" << name_ <<"]");
   }
-  dist_thres_ = 0.01;
   if(!nh_.getParam("dist_thres", dist_thres_))
   {
     ROS_WARN_STREAM("Couldn't retrieve parameter 'dist_thres' from parameter server! Using default '"
                     << dist_thres_ << "'. [" << name_ <<"]");
   }
-  orient_thres_ = 0.02;
   if(!nh_.getParam("orient_thres", orient_thres_))
   {
     ROS_WARN_STREAM("Couldn't retrieve parameter 'orient_thres' from parameter server! Using default '"
@@ -97,7 +87,6 @@ bool DiffDrivePoseControllerROS::init()
     ROS_WARN_STREAM("Couldn't retrieve parameter 'orient_eps' from parameter server! Using default '"
                     << orient_eps_ << "'. [" << name_ <<"]");
   }
-  pose_reached_ = false;
   ROS_DEBUG_STREAM("Controller initialised with the following parameters: [" << name_ <<"]");
   ROS_DEBUG_STREAM("base_frame_name = " << base_frame_name_ <<", goal_frame_name = "
                    << goal_frame_name_ << " [" << name_ <<"]");
@@ -119,7 +108,7 @@ void DiffDrivePoseControllerROS::spinOnce()
       return;
     }
     // determine controller output (v, w)
-    getControlOutput();
+    calculateControls();
     // set control output (v, w)
     setControlOutput();
     // Logging
@@ -149,79 +138,17 @@ bool DiffDrivePoseControllerROS::getPoseDiff()
   }
 
   // determine distance to goal
-  r_ = std::sqrt(std::pow(tf_goal_pose_rel_.getOrigin().getX(), 2)
+  double r = std::sqrt(std::pow(tf_goal_pose_rel_.getOrigin().getX(), 2)
                  + std::pow(tf_goal_pose_rel_.getOrigin().getY(), 2));
   // determine orientation of r relative to the base frame
-  delta_ = std::atan2(-tf_goal_pose_rel_.getOrigin().getY(), tf_goal_pose_rel_.getOrigin().getX());
+  double delta = std::atan2(-tf_goal_pose_rel_.getOrigin().getY(), tf_goal_pose_rel_.getOrigin().getX());
   // determine orientation of r relative to the goal frame
   // helper: theta = tf's orientation + delta
-  theta_ = tf::getYaw(tf_goal_pose_rel_.getRotation()) + delta_;
+  double theta = tf::getYaw(tf_goal_pose_rel_.getRotation()) + delta;
+
+  setInput(r, delta, theta);
 
   return true;
-};
-
-void DiffDrivePoseControllerROS::getControlOutput()
-{
-  cur_ = (-1 / r_) * (k_2_ * (delta_ - std::atan(-k_1_ * theta_))
-         + (1 + (k_1_ / (1 + std::pow((k_1_ * theta_), 2)))) * sin(delta_));
-  v_ = v_max_ / (1 + beta_ * std::pow(std::abs(cur_), lambda_));
-
-  // bounds for v
-  if (v_ < 0.0)
-  {
-    if (v_ > -v_min_)
-    {
-      v_ = -v_min_;
-    }
-    else if (v_ < -v_max_)
-    {
-      v_ = -v_max_;
-    }
-  }
-  else
-  {
-    if (v_ < v_min_)
-    {
-      v_ = v_min_;
-    }
-    else if (v_ > v_max_)
-    {
-      v_ = v_max_;
-    }
-  }
-
-  w_ = cur_ * v_; // unbounded for now
-
-  // pose reached thresholds
-  if (r_ <= dist_thres_)
-  {
-    v_ = 0;
-    if (std::abs(delta_ - theta_) <= orient_thres_)
-    {
-      w_ = 0;
-    }
-  }
-
-  // check, if pose has been reached
-  if ((r_ <= dist_thres_) && (std::abs(delta_ - theta_) <= orient_thres_))
-  {
-    if (!pose_reached_)
-    {
-      pose_reached_ = true;
-      ROS_INFO_STREAM("Pose reached. [" << name_ <<"]");
-      std_msgs::Bool bool_msg;
-      bool_msg.data = true;
-      pose_reached_publisher_.publish(bool_msg);
-    }
-  }
-  else if ((r_ > (dist_thres_ + dist_eps_)) || (std::abs(delta_ - theta_) > (orient_thres_ + orient_eps_)))
-  {
-    if (pose_reached_)
-    {
-      pose_reached_ = false;
-      ROS_INFO_STREAM("Tracking new goal pose. [" << name_ <<"]");
-    }
-  }
 };
 
 void DiffDrivePoseControllerROS::setControlOutput()
