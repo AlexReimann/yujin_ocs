@@ -26,13 +26,18 @@ catkin_package(INCLUDE_DIRS include
 include_directories(include
                     ${catkin_INCLUDE_DIRS})
 
-add_library(yocs_diff_drive_pose_controller_nodelet src/nodelet.cpp)
-add_dependencies(yocs_diff_drive_pose_controller_nodelet geometry_msgs_gencpp
-                                                         sensor_msgs_gencpp
-                                                         std_msgs_gencpp)
-target_link_libraries(yocs_diff_drive_pose_controller_nodelet ${catkin_LIBRARIES})
+add_library(${PROJECT_NAME}
+    src/nodelet.cpp
+    src/controller.cpp)
+    
+add_dependencies(${PROJECT_NAME}
+    geometry_msgs_gencpp
+    sensor_msgs_gencpp
+    std_msgs_gencpp)
+    
+target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
 
-install(TARGETS yocs_diff_drive_pose_controller_nodelet LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION})
+install(TARGETS ${PROJECT_NAME} LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION})
 install(DIRECTORY include/${PROJECT_NAME}/
         DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
         FILES_MATCHING PATTERN "*.hpp")
